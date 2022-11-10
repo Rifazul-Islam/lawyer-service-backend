@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 5000 ;
 
@@ -21,14 +22,44 @@ const uri =`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@clus
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
 
+
+function verifyToken(req,res,next){
+
+  const headered = req.headers.authorization;
+  if(!headered ){
+     return res.status(401).send({message:' invalid unauthorization access'})
+  }
+     const token = headered.split(' ')[1]
+    
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function(error, decoded){
+          if(error){
+           return res.status(401).send({message:' invalid  unauthorization access'})
+          }
+          req.decoded = decoded
+          next()
+  })
+
+
+
+}
+
 async function run(){
 
     try{
 
            const serviceCollection = client.db('lawyerdb').collection('services')
-            const reviewCollection = client.db('lawyerdb').collection('reviews')
-        app.get('/service', async(req,res)=>{
+           const reviewCollection = client.db('lawyerdb').collection('reviews')
+           
+           app.post('/jwt',(req,res)=>{
+            const users = req.body;
+           const token = jwt.sign(users, process.env.ACCESS_TOKEN_SECRET, { expiresIn:'1h'})
+   
+             
+               res.send({token})
+   
+             })
 
+            app.get('/service', async(req,res)=>{
               const  query = {}
               const cursor = serviceCollection.find(query);
               const result = await cursor.limit(3).toArray();
@@ -79,27 +110,30 @@ async function run(){
 })
 
 
-app.get('/reviews',  async(req,res)=>{
+      app.get('/reviews',verifyToken,  async(req,res)=>{
+      const decoded = req.decoded;
+             
+              if(decoded.email !== req.query.email){
+                      
+               res.status(403).send({message:'invalid  unauthorization access'})
+              }
             
-let query = {} ;
+        let query = {} ;
 
-if(req.query.email){
+        if(req.query.email){
 
-    query = {
-
-         email:req.query.email
-    }
-}
-
-const cursor = reviewCollection.find(query);
-
-const result = await cursor.toArray();
-res.send(result)
-})
+        query = {
+          email:req.query.email
+          }
+        }
+           const cursor = reviewCollection.find(query);
+          const result = await cursor.toArray();
+          res.send(result)
+        })
 
 
 
-   app.delete('/reviews/:id', async(req,res)=>{
+   app.delete('/reviews/:id',  async(req,res)=>{
 
         const id = req.params.id;
         const query = { _id:ObjectId(id)}
@@ -120,16 +154,16 @@ res.send(result)
 
 }
 
-run().catch(console.dir);
+  run().catch(console.dir);
 
 
 
-app.get('/', (req,res)=>{
+    app.get('/', (req,res)=>{
     res.send('Laywer server site running ...')
 })
 
 
-app.listen(port,()=>{
+   app.listen(port,()=>{
 
     console.log(`Laywer server running ${port}`)
 })
