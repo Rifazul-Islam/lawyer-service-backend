@@ -52,7 +52,7 @@ async function run(){
            
            app.post('/jwt',(req,res)=>{
             const users = req.body;
-           const token = jwt.sign(users, process.env.ACCESS_TOKEN_SECRET, { expiresIn:'1h'})
+           const token = jwt.sign(users, process.env.ACCESS_TOKEN_SECRET, { expiresIn:'7d'})
    
              
                res.send({token})
@@ -110,13 +110,8 @@ async function run(){
 })
 
 
-      app.get('/reviews',verifyToken,  async(req,res)=>{
-      const decoded = req.decoded;
-             
-              if(decoded.email !== req.query.email){
-                      
-               res.status(403).send({message:'invalid  unauthorization access'})
-              }
+      app.get('/reviews',  async(req,res)=>{
+      
             
         let query = {} ;
 
